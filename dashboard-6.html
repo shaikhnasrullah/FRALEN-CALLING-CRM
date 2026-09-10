@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FRALEN Calling CRM — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --navy: #1B2A6B; --navy-light: #2A3F8F; --accent: #4F6BF0; --accent-soft: #EEF1FE;
+    --gray: #6B7280; --border: #C5D3E8; --green: #10B981; --orange: #F59E0B; --red: #EF4444; }
+  body { font-family: 'Inter', sans-serif; background: #f0f4f8; color: #111827; min-height: 100vh; padding-bottom: 70px; }
+
+  .topbar { background: var(--navy); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar-logo { font-family: 'Montserrat', sans-serif; font-size: 16px; font-weight: 900; color: white; letter-spacing: 2px; }
+  .topbar-logo span { color: #F59E0B; }
+  .logout-btn { background: rgba(255,255,255,0.15); color: white; border: none; padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+  .container { padding: 16px; max-width: 900px; margin: 0 auto; }
+  h2.section { font-size: 13px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: 0.6px; margin: 18px 0 10px; }
+
+  .activity-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .act-card {
+    background: white; border-radius: 12px; border: 1px solid var(--border); padding: 14px;
+    cursor: pointer; transition: box-shadow 0.15s; display: flex; flex-direction: column; gap: 6px;
+  }
+  .act-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  .act-card .icon { font-size: 22px; }
+  .act-card .num { font-size: 24px; font-weight: 800; color: var(--navy); }
+  .act-card .lbl { font-size: 12px; color: var(--gray); font-weight: 600; }
+  .act-card.urgent { border-left: 4px solid var(--red); }
+  .act-card.warn { border-left: 4px solid var(--orange); }
+
+  .quick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .quick-btn {
+    background: white; border: 1px solid var(--border); border-radius: 10px; padding: 12px 6px;
+    display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; font-size: 11px;
+    font-weight: 700; color: var(--navy); text-align: center;
+  }
+  .quick-btn .icon { font-size: 20px; }
+  .quick-btn:hover { background: var(--accent-soft); }
+
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid var(--border);
+    display: flex; justify-content: space-around; padding: 8px 0; z-index: 100;
+  }
+  .nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10.5px; font-weight: 700; color: var(--gray); cursor: pointer; }
+  .nav-item.active { color: var(--accent); }
+  .nav-item .icon { font-size: 19px; }
+
+  .loading { text-align: center; padding: 30px; color: var(--gray); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">📞 FRALEN <span>CALLING</span></div>
+  <button class="logout-btn" onclick="window.doLogout()">Logout</button>
+</div>
+
+<div class="container">
+  <h2 class="section">Today's Activity</h2>
+  <div class="activity-grid" id="activity-grid">
+    <div class="loading">Loading...</div>
+  </div>
+
+  <h2 class="section">Quick Actions</h2>
+  <div class="quick-grid">
+    <div class="quick-btn" onclick="window.location.href='customers.html'"><div class="icon">👥</div>Customers</div>
+    <div class="quick-btn" onclick="window.location.href='followups.html'"><div class="icon">🔔</div>Follow-ups</div>
+    <div class="quick-btn" onclick="window.location.href='leads.html'"><div class="icon">🔥</div>Leads</div>
+    <div class="quick-btn" onclick="window.location.href='complaints.html'"><div class="icon">🚨</div>Complaints</div>
+  </div>
+</div>
+
+<div class="bottom-nav">
+  <div class="nav-item active"><div class="icon">🏠</div>Dashboard</div>
+  <div class="nav-item" onclick="window.location.href='customers.html'"><div class="icon">👥</div>Customers</div>
+  <div class="nav-item" onclick="window.location.href='followups.html'"><div class="icon">🔔</div>Tasks</div>
+  <div class="nav-item" onclick="window.location.href='leads.html'"><div class="icon">🔥</div>Leads</div>
+</div>
+
+<script type="module">
+import { getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { requireAuth, tenantCollection, signOut, auth } from "./firebase-config.js";
+
+let currentUid = null;
+
+requireAuth((user) => {
+  currentUid = user.uid;
+  loadActivity();
+});
+
+window.doLogout = function () {
+  signOut(auth).then(() => window.location.href = 'index.html');
+};
+
+function daysBetween(dateStr) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  return Math.floor((now - d) / (1000 * 60 * 60 * 24));
+}
+
+function isToday(dateStr) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+}
+
+async function loadActivity() {
+  const grid = document.getElementById('activity-grid');
+  try {
+    // Orders come from the LINKED FRALEN CRM data (same Firestore).
+    const [orderSnap, callSnap, leadSnap, complaintSnap, feedbackSnap, serviceSnap, checkupSnap] = await Promise.all([
+      getDocs(tenantCollection(currentUid, "orders")),
+      getDocs(tenantCollection(currentUid, "calls")),
+      getDocs(tenantCollection(currentUid, "leads")),
+      getDocs(tenantCollection(currentUid, "complaints")),
+      getDocs(tenantCollection(currentUid, "feedback")),
+      getDocs(tenantCollection(currentUid, "services")),
+      getDocs(tenantCollection(currentUid, "eyeCheckups")),
+    ]);
+
+    const orders = orderSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const calls = callSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const leads = leadSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const complaints = complaintSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const feedbackDoneOrderIds = new Set(feedbackSnap.docs.map(d => d.data().orderId));
+    const serviceDoneOrderIds = new Set(serviceSnap.docs.map(d => d.data().orderId));
+    const checkupDoneOrderIds = new Set(checkupSnap.docs.map(d => d.data().orderId));
+
+    // Calls due today = logged follow-up dates landing today or earlier (overdue), not yet resolved with a newer call.
+    const callsDueToday = calls.filter(c => c.followupDate && (isToday(c.followupDate) || new Date(c.followupDate) < new Date()) && !c.followupDone);
+
+    // Feedback due: order placed 7+ days ago, no feedback logged yet.
+    const feedbackDue = orders.filter(o => o.createdAt && daysBetween(o.createdAt) >= 7 && !feedbackDoneOrderIds.has(o.id));
+
+    // Servicing due: order placed 3+ months (90 days) ago, no service logged yet.
+    const servicingDue = orders.filter(o => o.createdAt && daysBetween(o.createdAt) >= 90 && !serviceDoneOrderIds.has(o.id));
+
+    // Eye check-up due: lens order placed 6+ months (180 days) ago, no check-up logged yet.
+    const checkupDue = orders.filter(o => o.hasLens && o.createdAt && daysBetween(o.createdAt) >= 180 && !checkupDoneOrderIds.has(o.id));
+
+    const openComplaints = complaints.filter(c => c.status !== 'Resolved' && c.status !== 'Closed');
+    const hotLeads = leads.filter(l => l.status === 'Hot');
+    const missedCalls = calls.filter(c => ['Busy', 'No Answer', 'Switched Off', 'Not Reachable'].includes(c.result) && !c.followupDone);
+
+    grid.innerHTML = `
+      <div class="act-card urgent" onclick="window.location.href='followups.html'"><div class="icon">📞</div><div class="num">${callsDueToday.length}</div><div class="lbl">Calls Due Today</div></div>
+      <div class="act-card urgent" onclick="window.location.href='followups.html'"><div class="icon">🔔</div><div class="num">${callsDueToday.length}</div><div class="lbl">Follow-ups Due</div></div>
+      <div class="act-card warn" onclick="window.location.href='customers.html?filter=servicing'"><div class="icon">👓</div><div class="num">${servicingDue.length}</div><div class="lbl">Servicing Due</div></div>
+      <div class="act-card warn" onclick="window.location.href='customers.html?filter=checkup'"><div class="icon">👁️</div><div class="num">${checkupDue.length}</div><div class="lbl">Eye Check-up Due</div></div>
+      <div class="act-card" onclick="window.location.href='customers.html?filter=feedback'"><div class="icon">⭐</div><div class="num">${feedbackDue.length}</div><div class="lbl">Feedback Due</div></div>
+      <div class="act-card urgent" onclick="window.location.href='complaints.html'"><div class="icon">🚨</div><div class="num">${openComplaints.length}</div><div class="lbl">Pending Complaints</div></div>
+      <div class="act-card warn" onclick="window.location.href='leads.html'"><div class="icon">🔥</div><div class="num">${hotLeads.length}</div><div class="lbl">Hot Leads</div></div>
+      <div class="act-card" onclick="window.location.href='followups.html'"><div class="icon">❌</div><div class="num">${missedCalls.length}</div><div class="lbl">Missed/Unanswered</div></div>
+    `;
+  } catch (err) {
+    grid.innerHTML = `<div class="loading">Error: ${err.message}</div>`;
+  }
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FRALEN Calling CRM — Customer Profile</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --navy: #1B2A6B; --accent: #4F6BF0; --accent-soft: #EEF1FE; --gray: #6B7280; --border: #C5D3E8;
+    --green: #10B981; --orange: #F59E0B; --red: #EF4444; }
+  body { font-family: 'Inter', sans-serif; background: #f0f4f8; color: #111827; min-height: 100vh; padding-bottom: 30px; }
+
+  .topbar { background: var(--navy); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar-logo { font-family: 'Montserrat', sans-serif; font-size: 16px; font-weight: 900; color: white; letter-spacing: 2px; }
+  .topbar-logo span { color: #F59E0B; }
+  .back-btn { background: rgba(255,255,255,0.15); color: white; border: none; padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+  .container { padding: 16px; max-width: 700px; margin: 0 auto; }
+
+  .head-card { background: white; border-radius: 14px; border: 1px solid var(--border); padding: 18px; margin-bottom: 14px; }
+  .head-card h1 { color: var(--navy); font-size: 19px; font-weight: 800; }
+  .head-card .mobile { color: var(--gray); font-size: 13px; margin-top: 3px; }
+  .call-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .call-actions a, .call-actions button { flex: 1; text-align: center; padding: 10px; border-radius: 9px; font-size: 13px; font-weight: 700; text-decoration: none; border: none; cursor: pointer; }
+  .btn-call { background: #1B2A6B; color: white; }
+  .btn-whatsapp { background: #25D366; color: white; }
+
+  .tabs { display: flex; gap: 6px; background: white; border-radius: 10px; padding: 4px; margin-bottom: 14px; overflow-x: auto; }
+  .tab { flex: 0 0 auto; padding: 9px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 700; color: var(--gray); cursor: pointer; white-space: nowrap; }
+  .tab.active { background: var(--navy); color: white; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .card { background: white; border-radius: 12px; border: 1px solid var(--border); padding: 16px; margin-bottom: 12px; }
+  .card h3 { font-size: 13.5px; font-weight: 800; color: var(--navy); margin-bottom: 12px; }
+
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 5px; }
+  .field select, .field input, .field textarea { width: 100%; padding: 9px 11px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13.5px; outline: none; font-family: inherit; }
+  .field textarea { min-height: 60px; resize: vertical; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .save-btn { width: 100%; padding: 11px; background: var(--accent); color: white; border: none; border-radius: 9px; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+  .save-btn:hover { background: var(--navy); }
+
+  .due-banner { background: var(--orange); color: white; border-radius: 10px; padding: 10px 14px; font-size: 12.5px; font-weight: 700; margin-bottom: 12px; }
+
+  .timeline-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid #F3F4F6; }
+  .timeline-item:last-child { border-bottom: none; }
+  .ti-icon { font-size: 18px; flex-shrink: 0; }
+  .ti-body .ti-title { font-size: 13px; font-weight: 700; color: var(--navy); }
+  .ti-body .ti-sub { font-size: 11.5px; color: var(--gray); margin-top: 2px; }
+  .ti-date { font-size: 11px; color: var(--gray); flex-shrink: 0; white-space: nowrap; }
+
+  .empty-state, .loading { text-align: center; padding: 24px; color: var(--gray); font-size: 13px; }
+  .status-msg { font-size: 12.5px; margin-top: 8px; display: none; text-align: center; }
+  .status-msg.ok { color: var(--green); display: block; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">📞 FRALEN <span>CALLING</span></div>
+  <button class="back-btn" onclick="window.location.href='customers.html'">← Customers</button>
+</div>
+
+<div class="container">
+  <div class="head-card">
+    <h1 id="cust-name">Loading...</h1>
+    <div class="mobile" id="cust-mobile"></div>
+    <div class="call-actions">
+      <a class="btn-call" id="call-link" href="#">📞 Call</a>
+      <a class="btn-whatsapp" id="wa-link" href="#" target="_blank">💬 WhatsApp</a>
+    </div>
+  </div>
+
+  <div id="due-banners"></div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="profile" onclick="window.showTab('profile')">Profile</div>
+    <div class="tab" data-tab="call" onclick="window.showTab('call')">Log Call</div>
+    <div class="tab" data-tab="service" onclick="window.showTab('service')">Feedback/Service/Eye</div>
+    <div class="tab" data-tab="timeline" onclick="window.showTab('timeline')">Timeline</div>
+  </div>
+
+  <!-- PROFILE TAB -->
+  <div class="tab-panel active" data-tab="profile">
+    <div class="card">
+      <h3>Basic Details</h3>
+      <div class="row2">
+        <div class="field"><label>DOB</label><input type="date" id="p-dob"/></div>
+        <div class="field"><label>Gender</label><select id="p-gender"><option value="">-- Select --</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+      </div>
+      <div class="field"><label>Address</label><textarea id="p-address" placeholder="Address..."></textarea></div>
+      <div class="row2">
+        <div class="field"><label>Area</label><input type="text" id="p-area" placeholder="e.g. Sakinaka"/></div>
+        <div class="field"><label>Customer Source</label>
+          <select id="p-source"><option value="">-- Select --</option><option>Walk-in</option><option>WhatsApp</option><option>Instagram</option><option>Facebook</option><option>Google</option><option>Referral</option><option>Existing Customer</option></select>
+        </div>
+      </div>
+      <div class="field"><label>Customer Status</label>
+        <select id="p-status"><option>New Lead</option><option>Contacted</option><option>Interested</option><option>Follow-up</option><option>Store Visit</option><option>Purchased</option><option>Repeat Customer</option></select>
+      </div>
+      <button class="save-btn" onclick="window.saveProfile()">Save Details</button>
+      <div class="status-msg" id="profile-msg"></div>
+    </div>
+  </div>
+
+  <!-- LOG CALL TAB -->
+  <div class="tab-panel" data-tab="call">
+    <div class="card">
+      <h3>📞 Log This Call</h3>
+      <div class="field"><label>Call Result</label>
+        <select id="call-result">
+          <optgroup label="Connected">
+            <option>Connected</option><option>Interested</option><option>Not Interested</option><option>Maybe</option>
+            <option>Call Later</option><option>Store Visit Confirmed</option><option>Home Visit Required</option>
+            <option>Purchased Elsewhere</option><option>Price Issue</option><option>Product Issue</option>
+            <option>Complaint</option><option>Information Required</option>
+          </optgroup>
+          <optgroup label="Not Connected">
+            <option>Busy</option><option>No Answer</option><option>Switched Off</option><option>Not Reachable</option><option>Wrong Number</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="field"><label>Conversation Notes</label><textarea id="call-notes" placeholder="Customer ne kya kaha?"></textarea></div>
+      <div class="field"><label>Next Action</label>
+        <select id="call-next"><option>Call Again</option><option>WhatsApp</option><option>Store Visit</option><option>Home Visit</option><option>Send Quotation</option><option>Send Product Photos</option><option>No Further Action</option></select>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Follow-up Date</label><input type="date" id="call-followup-date"/></div>
+        <div class="field"><label>Follow-up Time</label><input type="time" id="call-followup-time"/></div>
+      </div>
+      <button class="save-btn" onclick="window.saveCall()">Save Call Log</button>
+      <div class="status-msg" id="call-msg"></div>
+    </div>
+    <div class="card">
+      <h3>Call History</h3>
+      <div id="call-history"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- FEEDBACK / SERVICE / EYE CHECKUP TAB -->
+  <div class="tab-panel" data-tab="service">
+    <div class="card">
+      <h3>⭐ Feedback (7-day call)</h3>
+      <div class="field"><label>Rating</label><select id="fb-rating"><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select></div>
+      <div class="field"><label>Notes</label><textarea id="fb-notes" placeholder="Product quality, fitting, staff behaviour, delivery..."></textarea></div>
+      <div class="field"><label>Customer Complaint?</label><select id="fb-complaint"><option>No</option><option>Yes</option></select></div>
+      <button class="save-btn" onclick="window.saveFeedback()">Save Feedback</button>
+      <div class="status-msg" id="fb-msg"></div>
+    </div>
+    <div class="card">
+      <h3>👓 Servicing (3-month)</h3>
+      <div class="field"><label>Service Type</label>
+        <select id="sv-type"><option>Nose pad changed</option><option>Screw tightened</option><option>Frame alignment</option><option>Ultrasonic cleaning</option><option>Lens cleaning</option><option>Other repair</option></select>
+      </div>
+      <div class="field"><label>Notes</label><textarea id="sv-notes"></textarea></div>
+      <button class="save-btn" onclick="window.saveService()">Save Service Record</button>
+      <div class="status-msg" id="sv-msg"></div>
+    </div>
+    <div class="card">
+      <h3>👁️ Eye Check-up (6-month)</h3>
+      <div class="row2">
+        <div class="field"><label>Previous Power (approx)</label><input type="text" id="ec-prev" placeholder="e.g. -2.5"/></div>
+        <div class="field"><label>New Power</label><input type="text" id="ec-new" placeholder="e.g. -3.0"/></div>
+      </div>
+      <div class="field"><label>Recommended Product</label><input type="text" id="ec-rec" placeholder="e.g. New progressive lens"/></div>
+      <button class="save-btn" onclick="window.saveCheckup()">Save Eye Check-up</button>
+      <div class="status-msg" id="ec-msg"></div>
+    </div>
+  </div>
+
+  <!-- TIMELINE TAB -->
+  <div class="tab-panel" data-tab="timeline">
+    <div class="card">
+      <h3>⭐ Customer Timeline</h3>
+      <div id="timeline-body"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { getDocs, addDoc, setDoc, getDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { requireAuth, tenantCollection, tenantDoc } from "./firebase-config.js";
+
+let currentUid = null;
+const params = new URLSearchParams(window.location.search);
+const mobile = decodeURIComponent(params.get('mobile') || 'unknown');
+let customerOrders = [];
+let customerName = '';
+
+requireAuth((user) => {
+  currentUid = user.uid;
+  document.getElementById('cust-mobile').textContent = mobile !== 'unknown' ? mobile : 'No mobile on file';
+  document.getElementById('call-link').href = mobile !== 'unknown' ? 'tel:' + mobile : '#';
+  loadAll();
+});
+
+window.showTab = function (tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.tab === tab));
+  if (tab === 'timeline') renderTimeline();
+};
+
+function daysBetween(dateStr) { return Math.floor((new Date() - new Date(dateStr)) / (1000 * 60 * 60 * 24)); }
+
+async function loadAll() {
+  try {
+    const orderSnap = await getDocs(tenantCollection(currentUid, "orders"));
+    customerOrders = orderSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(o => (o.mobile || 'unknown').trim() === mobile);
+    customerOrders.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    customerName = customerOrders[0]?.customerName || '(No name)';
+    document.getElementById('cust-name').textContent = customerName;
+    const waText = encodeURIComponent(`Hi ${customerName}! This is FRALEN Optical.`);
+    document.getElementById('wa-link').href = mobile !== 'unknown' ? `https://wa.me/91${mobile.replace(/\D/g,'')}?text=${waText}` : '#';
+
+    // Load extra profile fields (DOB, gender, address, area, source, status).
+    const profileSnap = await getDoc(tenantDoc(currentUid, "customerProfiles", mobile));
+    if (profileSnap.exists()) {
+      const p = profileSnap.data();
+      document.getElementById('p-dob').value = p.dob || '';
+      document.getElementById('p-gender').value = p.gender || '';
+      document.getElementById('p-address').value = p.address || '';
+      document.getElementById('p-area').value = p.area || '';
+      document.getElementById('p-source').value = p.source || '';
+      document.getElementById('p-status').value = p.status || 'New Lead';
+    }
+
+    checkDueBanners();
+    loadCallHistory();
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function checkDueBanners() {
+  const [feedbackSnap, serviceSnap, checkupSnap] = await Promise.all([
+    getDocs(tenantCollection(currentUid, "feedback")),
+    getDocs(tenantCollection(currentUid, "services")),
+    getDocs(tenantCollection(currentUid, "eyeCheckups")),
+  ]);
+  const feedbackDone = new Set(feedbackSnap.docs.map(d => d.data().orderId));
+  const serviceDone = new Set(serviceSnap.docs.map(d => d.data().orderId));
+  const checkupDone = new Set(checkupSnap.docs.map(d => d.data().orderId));
+
+  const banners = [];
+  customerOrders.forEach(o => {
+    if (o.createdAt && daysBetween(o.createdAt) >= 7 && !feedbackDone.has(o.id)) banners.push('⭐ Feedback call due (order ' + (o.orderNo || '') + ')');
+    if (o.createdAt && daysBetween(o.createdAt) >= 90 && !serviceDone.has(o.id)) banners.push('👓 Servicing due (order ' + (o.orderNo || '') + ')');
+    if (o.hasLens && o.createdAt && daysBetween(o.createdAt) >= 180 && !checkupDone.has(o.id)) banners.push('👁️ Eye check-up due (order ' + (o.orderNo || '') + ')');
+  });
+  document.getElementById('due-banners').innerHTML = banners.map(b => `<div class="due-banner">${b}</div>`).join('');
+}
+
+window.saveProfile = async function () {
+  const msg = document.getElementById('profile-msg');
+  try {
+    await setDoc(tenantDoc(currentUid, "customerProfiles", mobile), {
+      mobile, name: customerName,
+      dob: document.getElementById('p-dob').value,
+      gender: document.getElementById('p-gender').value,
+      address: document.getElementById('p-address').value.trim(),
+      area: document.getElementById('p-area').value.trim(),
+      source: document.getElementById('p-source').value,
+      status: document.getElementById('p-status').value,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+    msg.textContent = '✅ Saved!'; msg.className = 'status-msg ok';
+  } catch (e) { msg.textContent = 'Error: ' + e.message; msg.className = 'status-msg'; msg.style.display='block'; msg.style.color='#DC2626'; }
+};
+
+window.saveCall = async function () {
+  const msg = document.getElementById('call-msg');
+  const result = document.getElementById('call-result').value;
+  const notConnected = ['Busy','No Answer','Switched Off','Not Reachable','Wrong Number'].includes(result);
+  try {
+    await addDoc(tenantCollection(currentUid, "calls"), {
+      customerMobile: mobile, customerName,
+      result, connected: !notConnected,
+      notes: document.getElementById('call-notes').value.trim(),
+      nextAction: document.getElementById('call-next').value,
+      followupDate: document.getElementById('call-followup-date').value || null,
+      followupTime: document.getElementById('call-followup-time').value || null,
+      followupDone: false,
+      createdAt: new Date().toISOString(),
+    });
+    msg.textContent = '✅ Call logged!'; msg.className = 'status-msg ok';
+    document.getElementById('call-notes').value = '';
+    loadCallHistory();
+  } catch (e) { msg.textContent = 'Error: ' + e.message; }
+};
+
+async function loadCallHistory() {
+  const body = document.getElementById('call-history');
+  try {
+    const snap = await getDocs(query(tenantCollection(currentUid, "calls"), where("customerMobile", "==", mobile)));
+    const calls = snap.docs.map(d => d.data()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    if (calls.length === 0) { body.innerHTML = '<div class="empty-state">Koi call log nahi hai abhi.</div>'; return; }
+    body.innerHTML = calls.map(c => `
+      <div class="timeline-item">
+        <div class="ti-icon">📞</div>
+        <div class="ti-body"><div class="ti-title">${c.result}</div><div class="ti-sub">${c.notes || ''}</div></div>
+        <div class="ti-date">${new Date(c.createdAt).toLocaleDateString('en-IN')}</div>
+      </div>`).join('');
+  } catch (e) { body.innerHTML = `<div class="empty-state">Error: ${e.message}</div>`; }
+}
+
+window.saveFeedback = async function () {
+  const msg = document.getElementById('fb-msg');
+  const order = customerOrders[0];
+  if (!order) { msg.textContent = 'Koi order nahi mila is customer ka.'; return; }
+  try {
+    await addDoc(tenantCollection(currentUid, "feedback"), {
+      orderId: order.id, customerMobile: mobile, customerName,
+      rating: Number(document.getElementById('fb-rating').value),
+      notes: document.getElementById('fb-notes').value.trim(),
+      hasComplaint: document.getElementById('fb-complaint').value === 'Yes',
+      createdAt: new Date().toISOString(),
+    });
+    if (document.getElementById('fb-complaint').value === 'Yes') {
+      await addDoc(tenantCollection(currentUid, "complaints"), {
+        customerMobile: mobile, customerName, category: 'Other', priority: 'Normal', status: 'Open',
+        description: 'Auto-created from feedback: ' + document.getElementById('fb-notes').value.trim(),
+        createdAt: new Date().toISOString(),
+      });
+    }
+    msg.textContent = '✅ Feedback saved!'; msg.className = 'status-msg ok';
+    checkDueBanners();
+  } catch (e) { msg.textContent = 'Error: ' + e.message; }
+};
+
+window.saveService = async function () {
+  const msg = document.getElementById('sv-msg');
+  const order = customerOrders[0];
+  if (!order) { msg.textContent = 'Koi order nahi mila is customer ka.'; return; }
+  try {
+    await addDoc(tenantCollection(currentUid, "services"), {
+      orderId: order.id, customerMobile: mobile, customerName,
+      type: document.getElementById('sv-type').value,
+      notes: document.getElementById('sv-notes').value.trim(),
+      createdAt: new Date().toISOString(),
+    });
+    msg.textContent = '✅ Service record saved!'; msg.className = 'status-msg ok';
+    checkDueBanners();
+  } catch (e) { msg.textContent = 'Error: ' + e.message; }
+};
+
+window.saveCheckup = async function () {
+  const msg = document.getElementById('ec-msg');
+  const order = customerOrders.find(o => o.hasLens) || customerOrders[0];
+  if (!order) { msg.textContent = 'Koi order nahi mila is customer ka.'; return; }
+  try {
+    await addDoc(tenantCollection(currentUid, "eyeCheckups"), {
+      orderId: order.id, customerMobile: mobile, customerName,
+      previousPower: document.getElementById('ec-prev').value.trim(),
+      newPower: document.getElementById('ec-new').value.trim(),
+      recommended: document.getElementById('ec-rec').value.trim(),
+      createdAt: new Date().toISOString(),
+    });
+    msg.textContent = '✅ Eye check-up saved!'; msg.className = 'status-msg ok';
+    checkDueBanners();
+  } catch (e) { msg.textContent = 'Error: ' + e.message; }
+};
+
+async function renderTimeline() {
+  const body = document.getElementById('timeline-body');
+  body.innerHTML = '<div class="loading">Loading timeline...</div>';
+  try {
+    const [callSnap, feedbackSnap, serviceSnap, checkupSnap, complaintSnap] = await Promise.all([
+      getDocs(query(tenantCollection(currentUid, "calls"), where("customerMobile", "==", mobile))),
+      getDocs(query(tenantCollection(currentUid, "feedback"), where("customerMobile", "==", mobile))),
+      getDocs(query(tenantCollection(currentUid, "services"), where("customerMobile", "==", mobile))),
+      getDocs(query(tenantCollection(currentUid, "eyeCheckups"), where("customerMobile", "==", mobile))),
+      getDocs(query(tenantCollection(currentUid, "complaints"), where("customerMobile", "==", mobile))),
+    ]);
+
+    const items = [];
+    customerOrders.forEach(o => items.push({ date: o.createdAt, icon: '👓', title: `Purchased Rs. ${(o.totals?.payable||0).toFixed(0)}`, sub: o.orderNo || '' }));
+    callSnap.forEach(d => { const c = d.data(); items.push({ date: c.createdAt, icon: '📞', title: 'Call: ' + c.result, sub: c.notes || '' }); });
+    feedbackSnap.forEach(d => { const f = d.data(); items.push({ date: f.createdAt, icon: '⭐', title: `Feedback — ${f.rating}/5`, sub: f.notes || '' }); });
+    serviceSnap.forEach(d => { const s = d.data(); items.push({ date: s.createdAt, icon: '🔧', title: 'Servicing: ' + s.type, sub: s.notes || '' }); });
+    checkupSnap.forEach(d => { const e = d.data(); items.push({ date: e.createdAt, icon: '👁️', title: 'Eye Check-up', sub: `${e.previousPower||'-'} → ${e.newPower||'-'}` }); });
+    complaintSnap.forEach(d => { const c = d.data(); items.push({ date: c.createdAt, icon: '🚨', title: 'Complaint: ' + c.category, sub: c.status }); });
+
+    items.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+    if (items.length === 0) { body.innerHTML = '<div class="empty-state">Koi timeline entry nahi hai.</div>'; return; }
+    body.innerHTML = items.map(i => `
+      <div class="timeline-item">
+        <div class="ti-icon">${i.icon}</div>
+        <div class="ti-body"><div class="ti-title">${i.title}</div><div class="ti-sub">${i.sub}</div></div>
+        <div class="ti-date">${i.date ? new Date(i.date).toLocaleDateString('en-IN') : '-'}</div>
+      </div>`).join('');
+  } catch (err) {
+    body.innerHTML = `<div class="empty-state">Error: ${err.message}</div>`;
+  }
+}
+</script>
+
+</body>
+</html>

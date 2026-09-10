@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FRALEN Calling CRM — Follow-ups</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --navy: #1B2A6B; --accent: #4F6BF0; --accent-soft: #EEF1FE; --gray: #6B7280; --border: #C5D3E8;
+    --green: #10B981; --orange: #F59E0B; --red: #EF4444; }
+  body { font-family: 'Inter', sans-serif; background: #f0f4f8; color: #111827; min-height: 100vh; padding-bottom: 20px; }
+  .topbar { background: var(--navy); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar-logo { font-family: 'Montserrat', sans-serif; font-size: 16px; font-weight: 900; color: white; letter-spacing: 2px; }
+  .topbar-logo span { color: #F59E0B; }
+  .back-btn { background: rgba(255,255,255,0.15); color: white; border: none; padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .container { padding: 16px; max-width: 800px; margin: 0 auto; }
+  .fu-card { background: white; border-radius: 12px; border: 1px solid var(--border); border-left: 4px solid var(--orange); padding: 13px 16px; margin-bottom: 9px; cursor: pointer; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+  .fu-card.overdue { border-left-color: var(--red); }
+  .fu-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+  .fu-info h4 { color: var(--navy); font-size: 14.5px; font-weight: 800; margin-bottom: 3px; }
+  .fu-meta { font-size: 11.5px; color: var(--gray); display: flex; gap: 8px; flex-wrap: wrap; }
+  .fu-meta span { background: #F3F4F6; padding: 2px 8px; border-radius: 20px; }
+  .badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+  .badge-overdue { background: #FEE2E2; color: #B91C1C; }
+  .badge-today { background: #FEF3C7; color: #B45309; }
+  .empty-state, .loading { text-align: center; padding: 40px 20px; color: var(--gray); font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-logo">📞 FRALEN <span>CALLING</span></div>
+  <button class="back-btn" onclick="window.location.href='dashboard.html'">← Dashboard</button>
+</div>
+<div class="container">
+  <div id="list-body"><div class="loading">Loading follow-ups...</div></div>
+</div>
+
+<script type="module">
+import { getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { requireAuth, tenantCollection } from "./firebase-config.js";
+
+let currentUid = null;
+requireAuth((user) => { currentUid = user.uid; load(); });
+
+async function load() {
+  const body = document.getElementById('list-body');
+  try {
+    const snap = await getDocs(tenantCollection(currentUid, "calls"));
+    const calls = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(c => c.followupDate && !c.followupDone)
+      .sort((a, b) => new Date(a.followupDate) - new Date(b.followupDate));
+
+    if (calls.length === 0) { body.innerHTML = '<div class="empty-state">🎉 Koi follow-up pending nahi hai.</div>'; return; }
+
+    const today = new Date().toISOString().slice(0, 10);
+    body.innerHTML = calls.map(c => {
+      const overdue = c.followupDate < today;
+      const badge = overdue ? `<span class="badge badge-overdue">Overdue</span>` : (c.followupDate === today ? `<span class="badge badge-today">Today</span>` : `<span class="badge badge-today">${new Date(c.followupDate).toLocaleDateString('en-IN')}</span>`);
+      return `
+        <div class="fu-card ${overdue ? 'overdue' : ''}" onclick="window.location.href='customer-profile.html?mobile=${encodeURIComponent(c.customerMobile)}'">
+          <div class="fu-info">
+            <h4>${c.customerName || '-'}</h4>
+            <div class="fu-meta"><span>${c.customerMobile}</span><span>Next: ${c.nextAction || '-'}</span><span>Last result: ${c.result}</span></div>
+          </div>
+          ${badge}
+        </div>`;
+    }).join('');
+  } catch (err) {
+    body.innerHTML = `<div class="empty-state">Error: ${err.message}</div>`;
+  }
+}
+</script>
+</body>
+</html>

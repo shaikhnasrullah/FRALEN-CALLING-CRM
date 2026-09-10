@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FRALEN Calling CRM — Leads</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --navy: #1B2A6B; --accent: #4F6BF0; --accent-soft: #EEF1FE; --gray: #6B7280; --border: #C5D3E8;
+    --green: #10B981; --orange: #F59E0B; --red: #EF4444; }
+  body { font-family: 'Inter', sans-serif; background: #f0f4f8; color: #111827; min-height: 100vh; padding-bottom: 20px; }
+  .topbar { background: var(--navy); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar-logo { font-family: 'Montserrat', sans-serif; font-size: 16px; font-weight: 900; color: white; letter-spacing: 2px; }
+  .topbar-logo span { color: #F59E0B; }
+  .header-actions { display:flex; gap:8px; }
+  .back-btn, .add-btn { background: rgba(255,255,255,0.15); color: white; border: none; padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .add-btn { background: var(--accent); }
+  .container { padding: 16px; max-width: 800px; margin: 0 auto; }
+
+  .lead-card { background: white; border-radius: 12px; border: 1px solid var(--border); padding: 13px 16px; margin-bottom: 9px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+  .lead-info h4 { color: var(--navy); font-size: 14.5px; font-weight: 800; margin-bottom: 3px; }
+  .lead-meta { font-size: 11.5px; color: var(--gray); display: flex; gap: 8px; flex-wrap: wrap; }
+  .lead-meta span { background: #F3F4F6; padding: 2px 8px; border-radius: 20px; }
+  .status-select { padding: 6px 10px; border-radius: 20px; border: none; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+  .s-New { background: #DBEAFE; color: #1D4ED8; }
+  .s-Contacted { background: #FEF3C7; color: #B45309; }
+  .s-Interested { background: #FED7AA; color: #C2410C; }
+  .s-Hot { background: #FEE2E2; color: #B91C1C; }
+  .s-Converted { background: #D1FAE5; color: #047857; }
+  .s-Lost { background: #F3F4F6; color: #6B7280; }
+
+  .empty-state, .loading { text-align: center; padding: 40px 20px; color: var(--gray); font-size: 13.5px; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: white; border-radius: 16px; padding: 22px; width: 100%; max-width: 380px; }
+  .modal h2 { color: var(--navy); font-size: 16px; margin-bottom: 14px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 5px; }
+  .field input, .field select, .field textarea { width: 100%; padding: 9px 11px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13.5px; outline: none; font-family: inherit; }
+  .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+  .btn-cancel { padding: 8px 16px; border: 1.5px solid var(--border); border-radius: 8px; background: white; font-size: 13px; cursor: pointer; }
+  .btn-save { padding: 8px 18px; border: none; border-radius: 8px; background: var(--navy); color: white; font-size: 13px; font-weight: 700; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-logo">📞 FRALEN <span>CALLING</span></div>
+  <div class="header-actions">
+    <button class="add-btn" onclick="window.openAddModal()">➕ Add Lead</button>
+    <button class="back-btn" onclick="window.location.href='dashboard.html'">← Dashboard</button>
+  </div>
+</div>
+<div class="container">
+  <div id="list-body"><div class="loading">Loading leads...</div></div>
+</div>
+
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <h2>➕ Add New Lead</h2>
+    <div class="field"><label>Name</label><input type="text" id="l-name"/></div>
+    <div class="field"><label>Mobile</label><input type="tel" id="l-mobile"/></div>
+    <div class="field"><label>Source</label>
+      <select id="l-source"><option>Walk-in</option><option>WhatsApp</option><option>Instagram</option><option>Facebook</option><option>Google</option><option>Referral</option><option>Existing Customer</option><option>Home Eye Check-up</option><option>Camp</option><option>Website</option></select>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="l-notes" rows="2"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="window.closeAddModal()">Cancel</button>
+      <button class="btn-save" onclick="window.saveLead()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { getDocs, addDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { requireAuth, tenantCollection } from "./firebase-config.js";
+
+let currentUid = null;
+let leads = [];
+requireAuth((user) => { currentUid = user.uid; load(); });
+
+async function load() {
+  const body = document.getElementById('list-body');
+  try {
+    const snap = await getDocs(tenantCollection(currentUid, "leads"));
+    leads = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Hot leads first, then by most recent.
+    const order = { Hot: 0, Interested: 1, Contacted: 2, New: 3, Converted: 4, Lost: 5 };
+    leads.sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || new Date(b.createdAt) - new Date(a.createdAt));
+    render();
+  } catch (err) { body.innerHTML = `<div class="empty-state">Error: ${err.message}</div>`; }
+}
+
+function render() {
+  const body = document.getElementById('list-body');
+  if (leads.length === 0) { body.innerHTML = '<div class="empty-state">Koi lead nahi hai abhi. "➕ Add Lead" se shuru karo.</div>'; return; }
+  body.innerHTML = leads.map(l => `
+    <div class="lead-card">
+      <div class="lead-info">
+        <h4>${l.name || '-'}</h4>
+        <div class="lead-meta"><span>${l.mobile || '-'}</span><span>${l.source || '-'}</span>${l.notes ? `<span>${l.notes}</span>` : ''}</div>
+      </div>
+      <select class="status-select s-${l.status || 'New'}" onchange="window.updateStatus('${l.id}', this.value)">
+        <option value="New" ${l.status === 'New' || !l.status ? 'selected' : ''}>🔵 New</option>
+        <option value="Contacted" ${l.status === 'Contacted' ? 'selected' : ''}>🟡 Contacted</option>
+        <option value="Interested" ${l.status === 'Interested' ? 'selected' : ''}>🟠 Interested</option>
+        <option value="Hot" ${l.status === 'Hot' ? 'selected' : ''}>🔥 Hot</option>
+        <option value="Converted" ${l.status === 'Converted' ? 'selected' : ''}>🟢 Converted</option>
+        <option value="Lost" ${l.status === 'Lost' ? 'selected' : ''}>🔴 Lost</option>
+      </select>
+    </div>`).join('');
+}
+
+window.updateStatus = async function (id, status) {
+  try {
+    await updateDoc(doc(tenantCollection(currentUid, "leads"), id), { status });
+    const l = leads.find(x => x.id === id);
+    if (l) l.status = status;
+  } catch (e) { alert('Update fail hua: ' + e.message); }
+};
+
+window.openAddModal = function () {
+  document.getElementById('l-name').value = '';
+  document.getElementById('l-mobile').value = '';
+  document.getElementById('l-notes').value = '';
+  document.getElementById('add-modal').classList.add('open');
+};
+window.closeAddModal = function () { document.getElementById('add-modal').classList.remove('open'); };
+
+window.saveLead = async function () {
+  const name = document.getElementById('l-name').value.trim();
+  const mobile = document.getElementById('l-mobile').value.trim();
+  if (!name) { alert('Naam daalo.'); return; }
+  try {
+    await addDoc(tenantCollection(currentUid, "leads"), {
+      name, mobile, source: document.getElementById('l-source').value,
+      notes: document.getElementById('l-notes').value.trim(),
+      status: 'New', createdAt: new Date().toISOString(),
+    });
+    window.closeAddModal();
+    load();
+  } catch (e) { alert('Save fail hua: ' + e.message); }
+};
+</script>
+</body>
+</html>
